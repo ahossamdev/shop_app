@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/http_exception.dart';
-import '../Server data/products_server.dart';
+// import '../Server data/products_server.dart';
 import 'products.dart';
 import 'package:http/http.dart' as http;
 
@@ -10,6 +10,9 @@ class ProductsProvider with ChangeNotifier {
   //need to be private to not be used from outside:
 
   // var _showFavoritesOnly = false;
+  final String authToken;
+  final String userId;
+  ProductsProvider(this.authToken, this._items, this.userId);
 
   List<Product> get items {
     return [..._items];
@@ -24,29 +27,37 @@ class ProductsProvider with ChangeNotifier {
     return items.firstWhere((prdct) => prdct.id == id);
   }
 
-  final url = Uri.parse(
-    'https://flutter-update-fe608-default-rtdb.firebaseio.com/products.json',
-  );
-
   // getting data from server :
 
-  Future<void> fetchProductsData() async {
+  Future<void> fetchProductsData([bool filterByUser = false]) async {
+    final filterString =
+        filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : '';
+
+    var url = Uri.parse(
+      'https://flutter-update-fe608-default-rtdb.firebaseio.com/products.json?auth=$authToken&$filterString',
+    );
     try {
       final response = await http.get(url);
       final decodedResponse =
           json.decode(response.body) as Map<String, dynamic>;
-      // print(decodedResponse);
+      print(decodedResponse);
       List<Product> loadedproducts = [];
       if (decodedResponse == null) return;
+      url = Uri.parse(
+        'https://flutter-update-fe608-default-rtdb.firebaseio.com/products/favorite-products/$userId.json?auth=$authToken',
+      );
+      final favoriteResponse = await http.get(url);
+      final favoriteData = json.decode(favoriteResponse.body);
       decodedResponse.forEach((prodId, prodData) {
         loadedproducts.add(
           Product(
             id: prodId,
-            price: prodData['price'],
+            price: prodData['price'] as double,
             description: prodData['description'],
             imageUrl: prodData['imageUrl'],
             title: prodData['title'],
-            isFavorite: prodData['isFavorite'],
+            isFavorite:
+                favoriteData == null ? false : favoriteData[prodId] ?? false,
           ),
         );
       });
@@ -54,7 +65,7 @@ class ProductsProvider with ChangeNotifier {
       notifyListeners();
       // print(decodedResponse);
     } catch (err) {
-      print(err);
+      print(' here line 5999');
       throw err;
     }
   }
@@ -62,6 +73,9 @@ class ProductsProvider with ChangeNotifier {
   // posting data from server :
 
   Future<void> addProduct(Product product) {
+    final url = Uri.parse(
+      'https://flutter-update-fe608-default-rtdb.firebaseio.com/products.json?auth=$authToken',
+    );
     return http
         .post(url,
             body: json.encode({
@@ -69,7 +83,7 @@ class ProductsProvider with ChangeNotifier {
               'description': product.description,
               'imageUrl': product.imageUrl,
               'price': product.price,
-              'isFavorite': product.isFavorite,
+              'creatorId': userId,
             }))
         .then((response) {
       final newProduct = Product(
@@ -95,7 +109,7 @@ class ProductsProvider with ChangeNotifier {
     final prodIndex = _items.indexWhere((prod) => prod.id == productId);
     if (prodIndex >= 0) {
       final url = Uri.parse(
-        'https://flutter-update-fe608-default-rtdb.firebaseio.com/products/$productId.json',
+        'https://flutter-update-fe608-default-rtdb.firebaseio.com/products/$productId.json?auth=$authToken',
       );
       try {
         await http.patch(
@@ -125,7 +139,7 @@ class ProductsProvider with ChangeNotifier {
     var existingProduct = _items[existingProductIndex];
     notifyListeners();
     final url = Uri.parse(
-      'https://flutter-update-fe608-default-rtdb.firebaseio.com/products/$id.json',
+      'https://flutter-update-fe608-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken',
     );
     _items.removeWhere((product) => product.id == id);
     final response = await http.delete(url);

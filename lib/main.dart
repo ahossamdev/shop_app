@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../provider/user_auth.dart';
+import '../pages/auth_screen.dart';
 import './pages/edit_products.dart';
 import './pages/user_product.dart';
 import './pages/order_page.dart';
@@ -36,36 +38,59 @@ class MyApp extends StatelessWidget {
     // It's the best practice  :--------------------
 
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create:
-              (context) => // builder for version 3 of provider package & create for the latest version:
-                  ProductsProvider(),
-        ),
-        ChangeNotifierProvider(
-          create: (context) => Cart(),
-        ),
-        ChangeNotifierProvider(
-          create: (context) => Orders(),
-        ),
-      ],
-      //create method return new instance of provider class:
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'MyShop',
-        theme: ThemeData(
-          primarySwatch: Colors.pink,
-          accentColor: Colors.amber,
-        ),
-        home: ProductOverView(),
-        routes: {
-          ProductDetails.routeName: (context) => ProductDetails(),
-          CartPage.routeName: (context) => CartPage(),
-          OrdersPage.routeName: (context) => OrdersPage(),
-          UserProducts.routeName: (context) => UserProducts(),
-          EditProduct.routeName: (context) => EditProduct(),
-        },
-      ),
-    );
+        providers: [
+          ChangeNotifierProvider(
+            create:
+                (context) => // builder for version 3 of provider package & create for the latest version:
+                    UserAuth(),
+          ),
+          // ignore: missing_required_param
+          ChangeNotifierProxyProvider<UserAuth, ProductsProvider>(
+            update: (context, auth, previousProducts) => ProductsProvider(
+                auth.token,
+                previousProducts == null ? [] : previousProducts.items,
+                auth.userId),
+          ),
+          // ignore: missing_required_param
+          ChangeNotifierProxyProvider<UserAuth, Orders>(
+            update: (context, auth, previousOrders) => Orders(
+                auth.token,
+                previousOrders == null ? [] : previousOrders.orders,
+                auth.userId),
+          ),
+          // ChangeNotifierProvider(
+          //   create:
+          //       (context) => // builder for version 3 of provider package & create for the latest version:
+          //           ProductsProvider(),
+          // ),
+          // create:
+          //
+          // ),
+          ChangeNotifierProvider(
+            create: (context) => Cart(),
+          ),
+          // ChangeNotifierProvider(
+          //   create: (context) => Orders(),
+          // ),
+        ],
+        //create method return new instance of provider class:
+        child: Consumer<UserAuth>(
+          builder: (context, auth, _) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'MyShop',
+            theme: ThemeData(
+              primarySwatch: Colors.pink,
+              accentColor: Colors.amber,
+            ),
+            home: auth.isAuth ? ProductOverView() : AuthScreen(),
+            routes: {
+              ProductDetails.routeName: (context) => ProductDetails(),
+              CartPage.routeName: (context) => CartPage(),
+              OrdersPage.routeName: (context) => OrdersPage(),
+              UserProducts.routeName: (context) => UserProducts(),
+              EditProduct.routeName: (context) => EditProduct(),
+            },
+          ),
+        ));
   }
 }
